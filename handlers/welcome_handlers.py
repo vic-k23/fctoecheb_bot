@@ -6,6 +6,8 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 # from aiogram.utils import exceptions
 
 from keybords import request_phone, main_menu
+from DB.hospitalization import HDB
+from settings import HOSP_HOST, HOSP_PORT, HOSP_USER, HOSP_PASS, HOSP_DB
 
 
 class ProfileForm(StatesGroup):
@@ -19,14 +21,32 @@ class ProfileForm(StatesGroup):
 
 
 async def welcome(message: Message):
-    # Set profile state
-    await ProfileForm.fio.set()
+    """
+    Обработчик команды /start
+    """
+    with HDB(username=HOSP_USER,
+             password=HOSP_PASS,
+             host=HOSP_HOST,
+             port=HOSP_PORT,
+             database=HOSP_DB) as hosp_db:
+        patient = hosp_db.find_patient_by_tg_user_id(message.from_user.id)
+        if patient.get("pid") != -1:
+            try:
+                await message.answer(
+                    f"Здравствуйте, {patient.get('fio')}",
+                    reply_markup=main_menu.kbd_menu
+                )
+            except Exception as ex:
+                logging.exception(ex)
+        else:
+            # Set profile state
+            await ProfileForm.fio.set()
 
-    # Send welcome message
-    await message.reply("Здравствуйте! Давайте познакомимся. \n"
-                        "Напишите, пожалуйста, свои \n"
-                        "Фамилию Имя Отчество \n"
-                        "(строго в этом порядке, иначе мы не подружимся :-( )")
+            # Send welcome message
+            await message.reply("Здравствуйте! Давайте познакомимся. \n"
+                                "Напишите, пожалуйста, свои \n"
+                                "Фамилию Имя Отчество \n"
+                                "(строго в этом порядке, иначе мы не подружимся :-( )")
 
 
 async def process_fio(message: Message, state: FSMContext):
@@ -55,9 +75,16 @@ async def process_region(message: Message, state: FSMContext):
 
 
 async def process_phone_number(message: Message, state: FSMContext):
-    print('=' * 20)
     async with state.proxy() as data:
         data['phone_num'] = message.contact.phone_number
+        with HDB(username=HOSP_USER,
+                 password=HOSP_PASS,
+                 host=HOSP_HOST,
+                 port=HOSP_PORT,
+                 database=HOSP_DB) as hosp_db:
+            pid = hosp_db.find_patient(data.get('fio'), data.get('b_y'), data.get('region'), data.get('phone_num'))
+            print(f"{pid=}")
+            hosp_db.update_patient(pid=pid, tg_user_id=message.from_user.id)
     try:
         await message.reply(
             f"Приятно познакомиться",
