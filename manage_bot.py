@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 # Initialize bot and dispatcher
 bot = Bot(token=settings.API_TOKEN)
 # storage = MemoryStorage()
-storage = RedisStorage2(password="CzsqvJwjY3U5!9SD", username="bot")
+storage = RedisStorage2(password=PASSWORD, username="bot")
 dp = Dispatcher(bot, storage=storage)
 
 
